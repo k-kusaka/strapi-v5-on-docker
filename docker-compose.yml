@@ -1,0 +1,115 @@
+services:
+  strapi:
+    container_name: ${SERVICE_NAME}_strapi
+    build:
+      context: ./strapi/
+      args:
+        - NODE_ENV=${NODE_ENV}
+        - STRAPI_PORT=${STRAPI_PORT}
+      dockerfile: Dockerfile.${NODE_ENV}
+    image: ${SERVICE_NAME}_strapi_image
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      STRAPI_HOST: ${STRAPI_HOST}
+      STRAPI_PORT: ${STRAPI_PORT}
+      STRAPI_SERVER_NAME: ${STRAPI_SERVER_NAME}
+      NODE_ENV: ${NODE_ENV}
+      DEBUG_MODE: ${DEBUG_MODE}
+      APP_KEYS: ${APP_KEYS}
+      API_TOKEN_SALT: ${API_TOKEN_SALT}
+      JWT_SECRET: ${JWT_SECRET}
+      ADMIN_JWT_SECRET: ${ADMIN_JWT_SECRET}
+      TRANSFER_TOKEN_SALT: ${TRANSFER_TOKEN_SALT}
+      FLAG_NPS: ${FLAG_NPS}
+      FLAG_PROMOTE_EE: ${FLAG_PROMOTE_EE}
+      STRAPI_DATABASE_CLIENT: ${STRAPI_DATABASE_CLIENT}
+      STRAPI_DATABASE_URL: ${STRAPI_DATABASE_URL}
+      STRAPI_DATABASE_HOST: db
+      STRAPI_DATABASE_PORT: ${STRAPI_DATABASE_PORT}
+      STRAPI_DATABASE_NAME: ${STRAPI_DATABASE_NAME}
+      STRAPI_DATABASE_USERNAME: ${STRAPI_DATABASE_USERNAME}
+      STRAPI_DATABASE_PASSWORD: ${STRAPI_DATABASE_PASSWORD}
+      STRAPI_DATABASE_SSL: ${STRAPI_DATABASE_SSL}
+      STRAPI_DATABASE_SSL_KEY: ${STRAPI_DATABASE_SSL_KEY}
+      STRAPI_DATABASE_SSL_CERT: ${STRAPI_DATABASE_SSL_CERT}
+      STRAPI_DATABASE_SSL_CA: ${STRAPI_DATABASE_SSL_CA}
+      STRAPI_DATABASE_SSL_CAPATH: ${STRAPI_DATABASE_SSL_CAPATH}
+      STRAPI_DATABASE_SSL_CIPHER: ${STRAPI_DATABASE_SSL_CIPHER}
+      STRAPI_DATABASE_SSL_REJECT_UNAUTHORIZED: ${STRAPI_DATABASE_SSL_REJECT_UNAUTHORIZED}
+      STRAPI_DATABASE_POOL_MIN: ${STRAPI_DATABASE_POOL_MIN}
+      STRAPI_DATABASE_POOL_MAX: ${STRAPI_DATABASE_POOL_MAX}
+      STRAPI_DATABASE_SCHEMA: ${STRAPI_DATABASE_SCHEMA}
+      STRAPI_DATABASE_FILENAME: ${STRAPI_DATABASE_FILENAME}
+      STRAPI_DATABASE_CONNECTION_TIMEOUT: ${STRAPI_DATABASE_CONNECTION_TIMEOUT}
+    volumes:
+      - ./strapi/config:/opt/app/config
+      - ./strapi/src:/opt/app/src
+      - ./strapi/package.json:/opt/package.json
+      - ./.env:/opt/app/.env
+      - ./strapi/public/uploads:/opt/app/public/uploads
+    ports:
+      - ${STRAPI_PORT}:${STRAPI_PORT}
+    networks:
+      - service_network
+    depends_on:
+      - db
+
+  db:
+    container_name: ${SERVICE_NAME}_db
+    build:
+      context: ./mysql/
+      args:
+        - STRAPI_DATABASE_PORT=${STRAPI_DATABASE_PORT}
+      dockerfile: Dockerfile
+    platform: linux/amd64
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      MYSQL_USER: ${STRAPI_DATABASE_USERNAME}
+      MYSQL_ROOT_PASSWORD: ${STRAPI_DATABASE_PASSWORD}
+      MYSQL_PASSWORD: ${STRAPI_DATABASE_PASSWORD}
+      MYSQL_DATABASE: ${STRAPI_DATABASE_NAME}
+    volumes:
+      - service_db_volume:/var/lib/mysql
+      # - ./mysql/data:/var/lib/mysql # 永続化する場合
+    ports:
+      - ${STRAPI_DATABASE_PORT}:${STRAPI_DATABASE_PORT}
+    networks:
+      - service_network
+
+  nginx:
+    container_name: ${SERVICE_NAME}_nginx
+    image: nginx:stable
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - service_log_volume:/var/log/nginx/
+      # - ./nginx/logs/:/var/log/nginx/ # 永続化する場合
+      - ./nginx/templates:/etc/nginx/templates
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx/ssl/${STRAPI_SSL_CERT_KEY}:/etc/certs/${STRAPI_SSL_CERT_KEY}
+      - ./nginx/ssl/${STRAPI_SSL_CERT}:/etc/certs/${STRAPI_SSL_CERT}
+    environment:
+      STRAPI_SERVER_NAME: ${STRAPI_SERVER_NAME}
+      STRAPI_SSL_CERT: ${STRAPI_SSL_CERT}
+      STRAPI_SSL_CERT_KEY: ${STRAPI_SSL_CERT_KEY}
+      STRAPI_PORT: ${STRAPI_PORT}
+    networks:
+      - service_network
+
+volumes:
+  service_log_volume:
+    name: ${SERVICE_NAME}_log_volume
+    driver: local
+  service_db_volume:
+    name: ${SERVICE_NAME}_db_volume
+    driver: local
+
+networks:
+  service_network:
+    name: ${SERVICE_NAME}_network
+    driver: bridge

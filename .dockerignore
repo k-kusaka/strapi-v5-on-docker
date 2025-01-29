@@ -1,0 +1,14 @@
+# README
+**/README.md
+
+# git
+**/.gitignore
+**/.git
+
+# mysql
+mysql/data
+
+# nginx
+nginx/logs
+
+

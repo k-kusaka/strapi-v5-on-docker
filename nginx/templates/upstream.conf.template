@@ -1,0 +1,4 @@
+# Strapi server
+upstream strapi {
+    server host.docker.internal:${STRAPI_PORT};
+}
